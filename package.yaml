@@ -1,0 +1,86 @@
+name: pedersen-commitment 
+version: 0.1.0
+synopsis: An implementation of the Mutually Independent Commitment Schemes from the paper https://www.iacr.org/archive/asiacrypt2001/22480387.pdf
+maintainer: Thomas Dietert (thomas@adjoint.io)
+license: Apache
+github: adjoint-io/matrix
+category: Development
+extra-source-files:
+  - README.md
+
+flags:
+  static:
+    description: Emit statically-linked binary
+    manual: False
+    default: False
+
+  optimized:
+    description: Perform compiler optimizations
+    manual: False
+    default: False
+
+dependencies:
+  # Prelude
+  - base >= 4.7 && < 5
+  - protolude
+
+  # Data Structures
+  - containers
+
+  # Text
+  - text
+  - bytestring
+  - mtl >= 2.2
+  
+  # Cryptograhy
+  - cryptonite >= 0.21
+  - memory
+
+library:
+  source-dirs: src
+
+  ghc-options:
+    -fwarn-tabs
+    -fwarn-incomplete-patterns
+    -fwarn-incomplete-record-updates
+    -fwarn-redundant-constraints
+    -fwarn-implicit-prelude
+    -fwarn-overflowed-literals
+    -fwarn-orphans
+    -fwarn-identities
+    -fwarn-dodgy-exports
+    -fwarn-dodgy-imports
+    -fwarn-duplicate-exports
+    -fwarn-overlapping-patterns
+    -fwarn-missing-fields
+    -fwarn-missing-methods
+    -fwarn-missing-signatures
+    -fwarn-noncanonical-monad-instances
+    -fwarn-unused-pattern-binds
+    -fwarn-unused-type-patterns
+    -fwarn-unrecognised-pragmas
+    -fwarn-wrong-do-bind
+    -fno-warn-name-shadowing
+    -fno-warn-unused-binds
+    -fno-warn-unused-matches
+    -fno-warn-unused-do-bind
+
+  default-extensions:
+    - LambdaCase
+    - RecordWildCards
+    - OverloadedStrings
+    - NoImplicitPrelude
+    - FlexibleInstances
+
+  when:
+    - condition: os(linux) && flag(static)
+      ghc-options: -static -optl-static
+
+    - condition: flag(optimized)
+      ghc-options: -threaded -rtsopts -with-rtsopts=-N -O2
+
+  exposed-modules:
+    - PrimeField
+    - Pedersen
+    - MICP
+
