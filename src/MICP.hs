@@ -155,11 +155,9 @@ kpairToByte (k,k') = do
   hk' <- micpBlumMicaliPRNG k'
   return $ hk `xor` hk'
 
+-- | Takes a Map k v and returns Map k (g^v mod p)
 kmapToGKMap :: Monad m => Map Int Integer -> SPFM m (Map Int Integer)
-kmapToGKMap kmap = do
-  let (keys,vals) = Prelude.unzip $ Map.toList kmap
-  newVals <- mapM gexpSafeSPFM vals
-  return $ Map.fromList $ zip keys newVals
+kmapToGKMap kmap = return . flip map kmap . gexpSafeSPF =<< ask
 
 -------------------------------------------------------------------------------
 
