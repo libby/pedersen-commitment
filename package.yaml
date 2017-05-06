@@ -1,7 +1,7 @@
 name: pedersen-commitment 
 version: 0.1.0
-synopsis: An implementation of the Mutually Independent Commitment Schemes from the paper https://www.iacr.org/archive/asiacrypt2001/22480387.pdf
-maintainer: Thomas Dietert (thomas@adjoint.io)
+synopsis: An implementation of the Mutually Independent Commitment Schemes
+maintainer: Adjoint Inc (info@adjoint.io)
 license: Apache
 github: adjoint-io/matrix
 category: Development
