@@ -6,13 +6,12 @@ module Pedersen (
   Commitment(..),
   Reveal(..),
 
+  -- ** Commitment Actions
   setup,
   commit,
   decommit,
 
   validateCommitParams,
-
-  testPedersen,
 ) where
 
 import Protolude
@@ -82,15 +81,3 @@ validateCommitParams a (CommitParams spf h) =
 
 sha256 :: ByteString -> ByteString
 sha256 bs = BA.convert (hash bs :: Digest SHA3_256)
-
--------------------------------------------------------------------------------
--- Testing
--------------------------------------------------------------------------------
-
-testPedersen :: ByteString -> IO Bool
-testPedersen bs = do
-  let hashedBs = os2ip $ sha256 bs
-  (a,commitParams) <- setup 256 -- hashStorage uses sha256
-  pedersen <- commit hashedBs commitParams
-  return $ decommit commitParams pedersen
-
