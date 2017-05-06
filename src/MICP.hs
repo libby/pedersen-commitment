@@ -1,5 +1,34 @@
+{-|
+
+Mutually Independent Commitments Protocol (MICP)
+
+- 1, 2(a): send pedersen bases to each other
+- 2(b): Send bobGKMap to alice
+- 2(c): Send bobCommit to alice using alice params
+- 3(a): Send aliceGKMap to bob
+- 3(b): Send aliceCommit to bob
+- 3(c): Send aliceC to bob
+- 4(a): Send bobC to alice
+- 4(b): Send bobReveal to alice
+- 4(c): Send bobDMap to alice
+- 5(a): alice checks bob's commit
+- 5(b): Send aliceReveal to bob
+- 5(c): Send aliceDMap to bob
+- 5(d): send alice's 'a' to bob
+- 6(a): bob checks alice's commit
+- 6(b): bob checks that alice's ga^a == ha
+- 6(c): bob sends k'map and bob's 'a' to alice
+- 7(a): alice checks that bob's ga^a == ha
+- 7(b): alice checks k'map from bob matches gk'map received earlier
+- 8(a): bob checks k'map from alice matches gk'map recieved earlier
+- Reveal: Alice & Bob reveal kMaps (map of k only, no k')
+
+-}
 module MICP (
   MICParams,
+  KMap,
+  DMap,
+  GtoKMap,
   genKMaps,
   kmapToGKMap,
   blumMicaliPRNG,
@@ -57,7 +86,7 @@ genPRNGSeed = gexpSafeSPFM =<< randomInZpM
 -- "How to generate cryptographically strong sequences of pseudo random bits"
 -- - M. Blum and S. Micali, 1984
 --
--- resource:  https://crypto.stanford.edu/pbc/notes/crypto/blummicali.html
+-- Reference: https://crypto.stanford.edu/pbc/notes/crypto/blummicali.html
 blumMicaliPRNG
   :: MonadRandom m
   => Int       -- ^ Number of bits to generate
@@ -100,6 +129,7 @@ blumMicaliH p r = r < (p - 1) `div` 2
 -- Mutually Independent Commitments Protocol (MICP)
 -------------------------------------------------------------------------------
 
+-- | Commitment parameters
 data MICParams = MICParams
   { secParam    :: Int     -- ^ Security parameter, # bits of large prime
   , secretBytes :: [Word8] -- ^ Secret to commit to, as bytes

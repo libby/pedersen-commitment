@@ -1,5 +1,6 @@
 module Example (
   testMICP,
+  testPedersen,
   testBlumMicaliPRNG,
 ) where
 
@@ -137,8 +138,8 @@ testMICP secParam = do
     -- REVEAL STAGE:
     -- Alice & Bob reveal kMaps (map of k only, no k')
 
-    -- Using bob/alice env respectively to show this reveal can happen within the
-    -- shared env only, and doesn't care about local pedersen params
+    -- Using bob/alice env respectively to show this reveal can happen within
+    -- the shared env only, and doesn't care about local pedersen params
     aliceMsgRes <- micpReveal aliceKMap aliceK'Map
     let aliceResEqMsg = aliceMsgRes == aliceMsg
     bobMsgRes <- micpReveal bobKMap bobK'Map

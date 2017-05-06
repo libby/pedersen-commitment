@@ -7,10 +7,23 @@ the committing party divulges a necessary parameter of the commitment process.
 Strong commitment schemes must be both information *hiding* and computationally
 *binding*.
 
+The Pedersen commitment scheme has the following properties:
+
+* Hiding: A dishonest party cannot discover the honest party's value.
+* Binding: A dishonest party cannot open his or her commitment in more than one way
+* Non-correlation: A dishonest party cannot commit to a value that is in some
+  significant way correlated to the honest party's value.
+
 * [Reference](https://www.iacr.org/archive/asiacrypt2001/22480387.pdf)
 
 Usage
 -----
+
+```bash
+$ stack build
+$ stack repl
+> :load Example.hs
+```
 
 License
 -------
