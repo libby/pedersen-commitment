@@ -1,3 +1,12 @@
+{-|
+
+The Pedersen commitment scheme has three operations:
+
+- Setup
+- Commit
+- Open
+
+-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Pedersen (
@@ -9,7 +18,7 @@ module Pedersen (
   -- ** Commitment Actions
   setup,
   commit,
-  decommit,
+  open,
 
   validateCommitParams,
 ) where
@@ -66,8 +75,8 @@ commit x (CommitParams spf h) = do
     return (r,c)
   return $ Pedersen (Commitment c) (Reveal x r)
 
-decommit :: CommitParams -> Pedersen -> Bool
-decommit (CommitParams spf h) (Pedersen c (Reveal x r)) =
+open :: CommitParams -> Pedersen -> Bool
+open (CommitParams spf h) (Pedersen c (Reveal x r)) =
     resCommit == unCommitment c
   where
     resCommit = runSPFM spf $

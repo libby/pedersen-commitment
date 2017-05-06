@@ -30,7 +30,7 @@ testPedersen bs = do
   let hashedBs = os2ip $ sha256 bs
   (a,commitParams) <- setup 256 -- hashStorage uses sha256
   pedersen <- commit hashedBs commitParams
-  return $ decommit commitParams pedersen
+  return $ open commitParams pedersen
 
 -- | In this test, all values computed are in scope for both Alice & Bob, so
 -- instead of "sending" those values to one another, we can just use them for
@@ -90,7 +90,7 @@ testMICP secParam = do
     let bobDMap = computeDMap aliceC bobKMap bobR
 
     -- 5(a): alice checks bob's commit
-    unless (decommit aCommitParams bobPedersen) $
+    unless (open aCommitParams bobPedersen) $
       panic "Bob's commit is illegitimate!"
     --       alice verifies g^di = (g^ki)^c + g^r
     bobDMapVerified <- verifyDMap bobDMap bobGtoKMap aliceC $ rVal $ reveal bobPedersen
@@ -106,7 +106,7 @@ testMICP secParam = do
     -- 5(d): send alice's 'a' to bob
 
     -- 6(a): bob checks alice's commit
-    unless (decommit bCommitParams alicePedersen) $
+    unless (open bCommitParams alicePedersen) $
       panic "Alice's commit is illegitimate!"
     --       bob verifies g^di = (g^ki)^c + g^r
     aliceDMapVerified <- verifyDMap aliceDMap aliceGtoKMap bobC $ rVal $ reveal alicePedersen
