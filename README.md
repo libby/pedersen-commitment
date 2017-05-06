@@ -15,7 +15,7 @@ Pedersen commitment scheme has the following properties:
    significant way correlated to the honest party's value.
 
 Using Pedersen commitments we implement a [Mutually Independent
-Commitments]((https://www.iacr.org/archive/asiacrypt2001/22480387.pdf), a secure
+Commitments](https://www.iacr.org/archive/asiacrypt2001/22480387.pdf), a secure
 multiparty communication protocol in which counterparties can commit to
 arbitrary messages or data in a binding way such that all counterparties can
 perform zero knowledge equality or non-equality checks of counterparts data,
