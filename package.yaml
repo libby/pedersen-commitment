@@ -84,3 +84,15 @@ library:
     - Pedersen
     - MICP
 
+tests:
+  test-suite:
+    dependencies:
+    - base >= 4.7 && < 5
+    - pedersen-commitment
+    - protolude
+    - QuickCheck
+    - tasty
+    - tasty-hunit
+    - tasty-quickcheck
+    main: Main.hs
+    source-dirs: tests
