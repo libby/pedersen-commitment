@@ -1,6 +1,8 @@
 Pedersen Commitments
 ====================
 
+[![CircleCI](https://circleci.com/gh/adjoint-io/pedersen-commitment.svg?style=svg&circle-token=35a75a2815badbfcb8ed604037cff3203b848bd2)](https://circleci.com/gh/adjoint-io/pedersen-commitment)
+
 Commitment schemes are a way for one counterparty to commit to a value such that
 the value committed remains private, but can be revealed at a later time when
 the committing party divulges a necessary parameter of the commitment process.
