@@ -8,8 +8,9 @@ module Main (
 import Protolude
 
 import Test.Tasty
-import Test.Tasty.HUnit
+import Test.Tasty.HUnit as HU
 import Test.Tasty.QuickCheck
+import Test.QuickCheck.Monadic as QM
 
 import Pedersen
 import PrimeField
@@ -23,7 +24,13 @@ suite = testGroup "Test Suite" [
 
 pedersenTests :: TestTree
 pedersenTests = testGroup "Pedersen Commitment Scheme"
-  [ testCaseSteps "Additive Homomorphic Property" $ \step -> do
+  [ localOption (QuickCheckTests 50) $
+      testProperty "x == Open(Commit(x),r)" $ monadicIO $ do
+        (a, cp) <- liftIO $ setup 256
+        x <- liftIO $ randomInZq $ pedersenSPF cp
+        pc <- liftIO $ commit x cp
+        QM.assert $ open cp pc
+  , testCaseSteps "Additive Homomorphic Property" $ \step -> do
       step "Generating commit params..."
       (a,cp) <- setup 256
       let spf = pedersenSPF cp
