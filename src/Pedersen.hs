@@ -18,6 +18,7 @@ module Pedersen (
   -- ** Commitment Actions
   setup,
   commit,
+  homoCommit,
   open,
 
   verifyCommitParams,
@@ -79,6 +80,17 @@ commit x (CommitParams spf h) = do
     c <- gexpSafeSPFM x |*| expSafeSPFM h r
     return (r,c)
   return $ Pedersen (Commitment c) (Reveal x r)
+
+-- | Commits a new value resulting from the addition of two previous values
+-- such that:
+homoCommit :: CommitParams -> Reveal -> Reveal -> Pedersen
+homoCommit (CommitParams spf h) (Reveal x r) (Reveal y r') =
+    Pedersen newCommitment $ Reveal newVal newExp
+  where
+    newVal = x + y
+    newExp = r + r'
+    newCommitment = Commitment $ runSPFM spf $
+      gexpSafeSPFM newVal |*| expSafeSPFM h newExp
 
 -- | Open the commit by supplying the value commited, `x`, the
 -- random value `r` and the pedersen bases `g` and `h`, and
