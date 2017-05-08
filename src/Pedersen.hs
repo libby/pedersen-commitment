@@ -20,7 +20,7 @@ module Pedersen (
   commit,
   open,
 
-  validateCommitParams,
+  verifyCommitParams,
 ) where
 
 import Protolude
@@ -58,6 +58,9 @@ data Pedersen = Pedersen
   , reveal     :: Reveal
   }
 
+-- | Generates a Safe Prime Field (p,q,g) and a random value
+-- `a in Zq` such that `g^a = h`, where g and h are the bases
+-- to be used in the pedersen commit function.
 setup :: MonadRandom m => Int -> m (Integer, CommitParams)
 setup nbits = do
   spf <- mkSPF nbits
@@ -67,6 +70,8 @@ setup nbits = do
     return (a,h)
   return (a, CommitParams spf h)
 
+-- | Commit a value by generating a random number `r in Zq`
+-- and computing `C(x) = g^x * h^r` where x is the value to commit
 commit :: MonadRandom m => Integer -> CommitParams -> m Pedersen
 commit x (CommitParams spf h) = do
   (r,c) <- runSPFT spf $ do
@@ -75,6 +80,9 @@ commit x (CommitParams spf h) = do
     return (r,c)
   return $ Pedersen (Commitment c) (Reveal x r)
 
+-- | Open the commit by supplying the value commited, `x`, the
+-- random value `r` and the pedersen bases `g` and `h`, and
+-- verifying that `C(x) == g^x * h^r`
 open :: CommitParams -> Pedersen -> Bool
 open (CommitParams spf h) (Pedersen c (Reveal x r)) =
     resCommit == unCommitment c
@@ -82,11 +90,10 @@ open (CommitParams spf h) (Pedersen c (Reveal x r)) =
     resCommit = runSPFM spf $
       gexpSafeSPFM x |*| expSafeSPFM h r
 
-validateCommitParams :: Integer -> CommitParams -> Bool
-validateCommitParams a (CommitParams spf h) =
+-- | Check that `g^a = h` to verify integrity of a counterparty's commitment
+verifyCommitParams :: Integer -> CommitParams -> Bool
+verifyCommitParams a (CommitParams spf h) =
   runSPFM spf $ do
     h' <- gexpSafeSPFM a
     return $ h' == h
 
-sha256 :: ByteString -> ByteString
-sha256 bs = BA.convert (hash bs :: Digest SHA3_256)

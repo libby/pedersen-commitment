@@ -77,10 +77,14 @@ data PRNGState = PRNGState
   }
 
 initPRNGState :: Integer -> PRNGState
-initPRNGState = PRNGState 0 []
+initPRNGState seed =
+  PRNGState { i = 0
+            , bits = []
+            , seed = seed
+            }
 
-genPRNGSeed :: MonadRandom m => SPFM m Integer
-genPRNGSeed = gexpSafeSPFM =<< randomInZpM
+genPRNGSeed :: MonadRandom m => SPF -> m Integer
+genPRNGSeed spf = liftM (gexpSafeSPF spf) $ randomInZp spf
 
 -- | Generates a hardcore bit sequence using the result from the paper:
 -- "How to generate cryptographically strong sequences of pseudo random bits"
@@ -92,7 +96,7 @@ blumMicaliPRNG
   => Int       -- ^ Number of bits to generate
   -> Integer   -- ^ Initial seed (must be in Zp)
   -> SPF       -- ^ Safe prime field to compute within
-  -> m Integer -- ^ (256bit seed, Nbit result)
+  -> m Integer -- ^ n-bit, pseudo-random result
 blumMicaliPRNG nbits seed spf = do
     let randNBits = bits $ nStepsPRNG nbits $ initPRNGState seed
     return $ bitsToInteger randNBits
@@ -110,7 +114,7 @@ blumMicaliPRNG nbits seed spf = do
         newSeed = blumMicaliF spf prevSeed
 
         newBit
-          | blumMicaliH (unP $ spfP spf) newSeed = One
+          | blumMicaliH spf newSeed = One
           | otherwise = Zero
 
 -- | Strong one way function, discrete log problem:
@@ -122,8 +126,8 @@ blumMicaliF = gexpSafeSPF
 --     given p from LocalParams:
 --       let H(x) = if x < (p - 1)/2 then 1 else 0
 --   resource: https://crypto.stanford.edu/pbc/notes/crypto/hardcore.html
-blumMicaliH :: Integer -> Integer -> Bool
-blumMicaliH p r = r < (p - 1) `div` 2
+blumMicaliH :: SPF -> Integer -> Bool
+blumMicaliH spf r = r < (unP (spfP spf) - 1) `div` 2
 
 -------------------------------------------------------------------------------
 -- Mutually Independent Commitments Protocol (MICP)
@@ -150,7 +154,7 @@ micpBlumMicaliPRNG seed = fromIntegral <$> (lift . blumMicaliPRNG 8 seed =<< ask
 
 -- | Force random seed to be generated with (p,g) from shared env
 micpBlumMicaliSeed :: MonadRandom m => SPFM m Integer
-micpBlumMicaliSeed = genPRNGSeed
+micpBlumMicaliSeed = lift . genPRNGSeed =<< ask
 
 -------------------------------------------------------------------------------
 -- Generate (k,k') pairs such that H(k) XOR H(k') == secret:
@@ -162,7 +166,10 @@ type K'Map = Map Int Integer
 type GtoKMap = Map Int Integer
 type GtoK'Map = Map Int Integer
 
--- | 2(b), 3(a):
+-- | 2(b), 3(a): Generate two integer maps where the ith entry in
+-- each map corresponds to the ith k and k' values respectively such that
+-- `Hn(k_i) xor Hn(k_i') == byte_i`. Two maps are generated map because
+-- the values k and k' are to be exposed at different stages of the protocol.
 genKMaps :: MonadRandom m => [Word8] -> SPFM m (KMap,K'Map)
 genKMaps bytes = do
   (ks,k's) <- unzip <$> mapM genKPair bytes
@@ -170,10 +177,8 @@ genKMaps bytes = do
   let k'map = Map.fromList $ zip [0..] k's
   return (kmap,k'map)
 
-genKPair
-  :: MonadRandom m
-  => Word8                     -- ^ Byte to find k and k' for
-  -> SPFM m (Integer,Integer) -- ^ (k,k')
+-- | Generate a pair of values such that `Hn(k) xor Hn(k') = byte`
+genKPair :: MonadRandom m => Word8 -> SPFM m (Integer,Integer)
 genKPair byte = do
     k  <- micpBlumMicaliSeed
     hk <- micpBlumMicaliPRNG k
@@ -191,19 +196,13 @@ genKPair byte = do
         return k'
       else findK' hk
 
-kpairToByte :: MonadRandom m => (Integer,Integer) -> SPFM m Word8
-kpairToByte (k,k') = do
-  hk <- micpBlumMicaliPRNG k
-  hk' <- micpBlumMicaliPRNG k'
-  return $ hk `xor` hk'
-
 -- | Takes a Map k v and returns Map k (g^v mod p)
 kmapToGKMap :: Monad m => Map Int Integer -> SPFM m (Map Int Integer)
-kmapToGKMap kmap = return . flip map kmap . gexpSafeSPF =<< ask
+kmapToGKMap kmap = liftM (flip map kmap . gexpSafeSPF) ask
 
 -------------------------------------------------------------------------------
 
--- | 2(c), 3(b): Generate random r in Zq and commit using Pedersen Commitment
+-- | 2(c), 3(b): Generate random r in Z_q and commit using Pedersen Commitment
 genAndCommitR
   :: MonadRandom m
   => CommitParams
@@ -214,7 +213,7 @@ genAndCommitR cparams = do
   c <- lift $ commit gr cparams
   return (r,c)
 
--- | 3(c), 4(a): Generate random c in Zq
+-- | 3(c), 4(a): Generate random c in Z_q
 genC :: MonadRandom m => SPFM m Integer
 genC = randomInZqM
 
@@ -222,27 +221,29 @@ genC = randomInZqM
 
 type DMap = Map Int Integer
 
--- | 4(c),5(c): computes di = c*ki + r
+-- | 4(c),5(c): computes d_i = c*k_i + r
 computeDMap
-  :: Integer      -- ^ Counterparty's 'c'
-  -> KMap         -- ^ Current party's KMap
-  -> Integer      -- ^ Current party's 'r'
+  :: Integer -- ^ Counterparty's 'c'
+  -> KMap    -- ^ Current party's KMap
+  -> Integer -- ^ Current party's 'r'
   -> DMap
 computeDMap c kmap r = map computeD kmap
   where
     -- This function does not use modular arithmetic because the
     -- exponent laws would not hold otherwise, and this is needed for
     -- verification later in the protocol. For example:
-    --   let p = 13
     --   ((x^7)^8 * (x^9) % p) /= (x^((7 * 8 + 9) % p)) % p
     computeD ki = c * ki + r
 
+-- | 5(a), 6(a): Verifies that the counterparty has not lied about their
+-- original commitment and has not tampered with the k values they used to
+-- encrypt their original message: `g^d_i == (g^k_i)^c * g^r`
 verifyDMap
   :: Monad m
-  => DMap              -- ^ Counterparty's DMap
-  -> GtoKMap           -- ^ Counterparty's (g^k, g^k') map
-  -> Integer           -- ^ Current party's 'c'
-  -> Integer           -- ^ Counterparty's 'g^r'
+  => DMap   -- ^ Counterparty's DMap
+  -> GtoKMap -- ^ Counterparty's (g^k, g^k') map
+  -> Integer -- ^ Current party's 'c'
+  -> Integer -- ^ Counterparty's 'g^r'
   -> SPFM m Bool
 verifyDMap dmap gkmap c gr =
     and <$> zipWithM (verifyDi c gr) ds gks
@@ -250,13 +251,13 @@ verifyDMap dmap gkmap c gr =
     ds = Map.elems dmap
     gks = Map.elems gkmap
 
--- | Verifies the ith 'd' value for the ith byte of the secret
+-- | Verifies the ith `d_i` value for the ith byte of the secret
 verifyDi
   :: Monad m
-  => Integer     -- ^ Current party's 'c'
-  -> Integer     -- ^ Counterparty's 'g^r'
-  -> Integer     -- ^ Counterparty's 'di'
-  -> Integer     -- ^ Counterparty's 'g^ki'
+  => Integer -- ^ Current party's 'c'
+  -> Integer -- ^ Counterparty's 'g^r'
+  -> Integer -- ^ Counterparty's 'di'
+  -> Integer -- ^ Counterparty's 'g^ki'
   -> SPFM m Bool
 verifyDi c gr di gki = do
   gdi <- gexpSafeSPFM di
@@ -268,10 +269,20 @@ verifyDi c gr di gki = do
 -- Reveal Stage
 -------------------------------------------------------------------------------
 
+-- | Computes the original bytestring that was commited by a counterparty once
+-- they have supplied the neccessary parameters k_i and k_i'.
 micpReveal :: MonadRandom m => KMap -> K'Map -> SPFM m ByteString
 micpReveal kmap k'map =
     BA.pack <$> zipWithM (curry kpairToByte) ks k's
   where
     ks = Map.elems kmap
     k's = Map.elems k'map
+
+-- | Generate the byte correspoding to `Hn(k) xor Hn(k')` where
+-- Hn(k) is the blum-micali PRNG hardcore nbit output
+kpairToByte :: MonadRandom m => (Integer,Integer) -> SPFM m Word8
+kpairToByte (k,k') = do
+  hk <- micpBlumMicaliPRNG k
+  hk' <- micpBlumMicaliPRNG k'
+  return $ hk `xor` hk'
 
