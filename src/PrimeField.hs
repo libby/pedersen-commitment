@@ -3,8 +3,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-{-# OPTIONS_GHC -fno-warn-missing-methods #-}
-
 module PrimeField (
     P,
     unP,
@@ -54,15 +52,15 @@ import Crypto.Number.Prime (generateSafePrime, isProbablyPrime)
 
 -- | A large, safe prime, p = 2q + 1, where q is a large prime
 newtype P = P { unP :: Integer }
-  deriving (Show, Eq, Ord, Num)
+  deriving (Show, Eq, Ord)
 
 -- | A large prime such that p = 2q + 1 and p is also prime
 newtype Q = Q { unQ :: Integer }
-  deriving (Show, Eq, Ord, Num)
+  deriving (Show, Eq, Ord)
 
 -- | A generator order Q for prime field order P
 newtype G = G { unG :: Integer }
-  deriving (Show, Eq, Ord, Num)
+  deriving (Show, Eq, Ord)
 
 -- | A Safe Prime Field (Zp):
 --     Q = large prime

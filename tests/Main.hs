@@ -29,8 +29,9 @@ pedersenTests = testGroup "Pedersen Commitment Scheme"
         (a, cp) <- liftIO $ setup 256
         x <- liftIO $ randomInZq $ pedersenSPF cp
         pc <- liftIO $ commit x cp
-        QM.assert $ open cp pc
-  , testCaseSteps "Additive Homomorphic Property" $ \step -> do
+        QM.assert $ open cp (commitment pc) (reveal pc)
+
+  , testCaseSteps "Additive Homomorphic Commitments" $ \step -> do
       step "Generating commit params..."
       (a,cp) <- setup 256
       let spf = pedersenSPF cp
@@ -38,26 +39,20 @@ pedersenTests = testGroup "Pedersen Commitment Scheme"
       step "Generating two random nums in Zp to commit."
       x <- randomInZq spf
       y <- randomInZq spf
-      putText $ "x = " <> show x
-      putText $ "y = " <> show y
 
       step "Commit the two random nums."
-      px <- commit x cp
-      py <- commit y cp
+      px@(Pedersen cx rx) <- commit x cp
+      py@(Pedersen cy ry) <- commit y cp
 
-      step "Create new commitment using Additive homomorphic property."
-      let pz = homoCommit cp (reveal px) (reveal py)
-      let (Reveal pzVal pzExp) = reveal pz
-
+      step "Check the validity of the commitments"
       assertBool "Pedersen commitments failed." $
-        open cp px && open cp py && open cp pz
+        open cp cx rx && open cp cy ry
 
-      let pxc = unCommitment $ commitment px
-      let pyc = unCommitment $ commitment py
-
-      -- Addition of crypto texts (doesn't work yet)
+      step "Verify that homomorphic addition of commitments works"
+      let cyz = homoAdd cp cx cy
+      let pyz = verifyHomoAdd cp px py
       assertBool "Additive homomorphic property doesn't hold." $
-        True -- pzVal == pxyc
+        cyz == commitment pyz
   ]
 
 
