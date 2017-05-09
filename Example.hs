@@ -114,13 +114,13 @@ testMICP secParam = do
       panic "Alice's computations are wrong!"
 
     -- 6(b): bob checks that alice's ga^a == ha
-    unless (validateCommitParams aliceA aCommitParams) $
+    unless (verifyCommitParams aliceA aCommitParams) $
       panic "Alice's pedersen bases are not valid!"
 
     -- 6(c): bob sends k'map and bob's 'a' to alice
 
     -- 7(a): alice checks that bob's ga^a == ha
-    unless (validateCommitParams bobA bCommitParams) $
+    unless (verifyCommitParams bobA bCommitParams) $
       panic "Bob's pedersen bases are not valid!"
 
     -- 7(b): alice checks k'map from bob matches gk'map received earlier
