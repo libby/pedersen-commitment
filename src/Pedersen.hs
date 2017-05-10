@@ -54,8 +54,8 @@ newtype Commitment = Commitment { unCommitment :: Integer }
   deriving (Eq)
 
 data Reveal = Reveal
-  { rVal :: Integer -- ^ Original value comitted
-  , rExp :: Integer -- ^ random exponent r, g^x * h^r
+  { revealVal :: Integer -- ^ Original value comitted
+  , revealExp :: Integer -- ^ random exponent r, g^x * h^r
   }
 
 data Pedersen = Pedersen

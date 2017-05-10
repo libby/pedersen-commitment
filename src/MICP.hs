@@ -3,9 +3,9 @@
 Mutually Independent Commitments Protocol (MICP)
 
 - 1, 2(a): send pedersen bases to each other
-- 2(b): Send bobGKMap to alice
+- 2(b): Send bobGK1Map to alice
 - 2(c): Send bobCommit to alice using alice params
-- 3(a): Send aliceGKMap to bob
+- 3(a): Send aliceGK1Map to bob
 - 3(b): Send aliceCommit to bob
 - 3(c): Send aliceC to bob
 - 4(a): Send bobC to alice
@@ -21,14 +21,14 @@ Mutually Independent Commitments Protocol (MICP)
 - 7(a): alice checks that bob's ga^a == ha
 - 7(b): alice checks k'map from bob matches gk'map received earlier
 - 8(a): bob checks k'map from alice matches gk'map recieved earlier
-- Reveal: Alice & Bob reveal kMaps (map of k only, no k')
+- Reveal: Alice & Bob reveal KMaps
 
 -}
 module MICP (
   MICParams,
-  KMap,
+  K1Map,
   DMap,
-  GtoKMap,
+  GtoK1Map,
   genKMaps,
   kmapToGKMap,
   blumMicaliPRNG,
@@ -52,8 +52,8 @@ import qualified Data.ByteArray as BA
 import qualified Data.Map as Map
 import Data.Maybe (fromJust)
 
-import Pedersen
-import PrimeField
+import qualified Pedersen as P
+import PrimeField as PF
 
 -------------------------------------------------------------------------------
 -- Blum Micali PRNG
@@ -63,9 +63,12 @@ data Bit = Zero | One
   deriving (Eq, Ord, Enum, Show)
 
 bitsToInteger :: [Bit] -> Integer
-bitsToInteger = snd . foldr (\b (n,sum) -> (n+1, bitToInt n b + sum)) (0,0)
+bitsToInteger = snd . foldr accum (0,0)
   where
-    bitToInt :: Integer -> Bit -> Integer
+    accum :: Bit -> (Int,Integer) -> (Int,Integer)
+    accum b (n,total) = (n+1, total + bitToInt n b)
+
+    bitToInt :: Int -> Bit -> Integer
     bitToInt n bit
       | n < 0 = 0
       | otherwise = 2^n * toInteger (fromEnum bit)
@@ -160,41 +163,41 @@ micpBlumMicaliSeed = lift . genPRNGSeed =<< ask
 -- Generate (k,k') pairs such that H(k) XOR H(k') == secret:
 -------------------------------------------------------------------------------
 
-type KMap = Map Int Integer
-type K'Map = Map Int Integer
+type K1Map = Map Int Integer
+type K2Map = Map Int Integer
 
-type GtoKMap = Map Int Integer
-type GtoK'Map = Map Int Integer
+type GtoK1Map = Map Int Integer
+type GtoK2Map = Map Int Integer
 
 -- | 2(b), 3(a): Generate two integer maps where the ith entry in
--- each map corresponds to the ith k and k' values respectively such that
--- `Hn(k_i) xor Hn(k_i') == byte_i`. Two maps are generated map because
+-- each map corresponds to the ith k1 and k2 values respectively such that
+-- `Hn(k1_i) xor Hn(k2_i) == byte_i`. Two maps are generated map because
 -- the values k and k' are to be exposed at different stages of the protocol.
-genKMaps :: MonadRandom m => [Word8] -> SPFM m (KMap,K'Map)
+genKMaps :: MonadRandom m => [Word8] -> SPFM m (K1Map,K2Map)
 genKMaps bytes = do
-  (ks,k's) <- unzip <$> mapM genKPair bytes
-  let kmap = Map.fromList $ zip [0..] ks
-  let k'map = Map.fromList $ zip [0..] k's
-  return (kmap,k'map)
+  (k1s,k2s) <- unzip <$> mapM genKPair bytes
+  let k1Map = Map.fromList $ zip [0..] k1s
+  let k2Map = Map.fromList $ zip [0..] k2s
+  return (k1Map,k2Map)
 
--- | Generate a pair of values such that `Hn(k) xor Hn(k') = byte`
+-- | Generate a pair of values such that `Hn(k1) xor Hn(k2) = byte`
 genKPair :: MonadRandom m => Word8 -> SPFM m (Integer,Integer)
 genKPair byte = do
-    k  <- micpBlumMicaliSeed
-    hk <- micpBlumMicaliPRNG k
-    k' <- findK' hk
-    return (k,k')
+    k1  <- micpBlumMicaliSeed
+    hk1 <- micpBlumMicaliPRNG k1
+    k2  <- findK2 hk1
+    return (k1,k2)
   where
     checkHKPair :: Bits a => a -> (a,a) -> Bool
-    checkHKPair byte (hk,hk') = byte == (hk `xor` hk')
+    checkHKPair byte (hk1,hk2) = byte == (hk1 `xor` hk2)
 
-    findK' :: MonadRandom m => Word8 -> SPFM m Integer
-    findK' hk = do
-      k'  <- micpBlumMicaliSeed
-      hk' <- micpBlumMicaliPRNG k'
-      if checkHKPair byte (hk,hk') then
-        return k'
-      else findK' hk
+    findK2 :: MonadRandom m => Word8 -> SPFM m Integer
+    findK2 hk1 = do
+      k2  <- micpBlumMicaliSeed
+      hk2 <- micpBlumMicaliPRNG k2
+      if checkHKPair byte (hk1,hk2) then
+        return k2
+      else findK2 hk1
 
 -- | Takes a Map k v and returns Map k (g^v mod p)
 kmapToGKMap :: Monad m => Map Int Integer -> SPFM m (Map Int Integer)
@@ -205,12 +208,12 @@ kmapToGKMap kmap = liftM (flip map kmap . gexpSafeSPF) ask
 -- | 2(c), 3(b): Generate random r in Z_q and commit using Pedersen Commitment
 genAndCommitR
   :: MonadRandom m
-  => CommitParams
-  -> SPFM m (Integer, Pedersen)
+  => P.CommitParams
+  -> SPFM m (Integer, P.Pedersen)
 genAndCommitR cparams = do
   r <- randomInZqM
   gr <- gexpSafeSPFM r
-  c <- lift $ commit gr cparams
+  c <- lift $ P.commit gr cparams
   return (r,c)
 
 -- | 3(c), 4(a): Generate random c in Z_q
@@ -224,7 +227,7 @@ type DMap = Map Int Integer
 -- | 4(c),5(c): computes d_i = c*k_i + r
 computeDMap
   :: Integer -- ^ Counterparty's 'c'
-  -> KMap    -- ^ Current party's KMap
+  -> K1Map    -- ^ Current party's K1Map
   -> Integer -- ^ Current party's 'r'
   -> DMap
 computeDMap c kmap r = map computeD kmap
@@ -241,7 +244,7 @@ computeDMap c kmap r = map computeD kmap
 verifyDMap
   :: Monad m
   => DMap   -- ^ Counterparty's DMap
-  -> GtoKMap -- ^ Counterparty's (g^k, g^k') map
+  -> GtoK1Map -- ^ Counterparty's (g^k, g^k') map
   -> Integer -- ^ Current party's 'c'
   -> Integer -- ^ Counterparty's 'g^r'
   -> SPFM m Bool
@@ -271,12 +274,12 @@ verifyDi c gr di gki = do
 
 -- | Computes the original bytestring that was commited by a counterparty once
 -- they have supplied the neccessary parameters k_i and k_i'.
-micpReveal :: MonadRandom m => KMap -> K'Map -> SPFM m ByteString
-micpReveal kmap k'map =
-    BA.pack <$> zipWithM (curry kpairToByte) ks k's
+micpReveal :: MonadRandom m => K1Map -> K2Map -> SPFM m ByteString
+micpReveal k1Map k2Map =
+    BA.pack <$> zipWithM (curry kpairToByte) k1s k2s
   where
-    ks = Map.elems kmap
-    k's = Map.elems k'map
+    k1s = Map.elems k1Map
+    k2s = Map.elems k2Map
 
 -- | Generate the byte correspoding to `Hn(k) xor Hn(k')` where
 -- Hn(k) is the blum-micali PRNG hardcore nbit output
@@ -286,3 +289,321 @@ kpairToByte (k,k') = do
   hk' <- micpBlumMicaliPRNG k'
   return $ hk `xor` hk'
 
+-------------------------------------------------------------------------------
+-- High Level Protocol functions
+-------------------------------------------------------------------------------
+
+--------------------------
+-- Initiator Phase 1
+--------------------------
+
+data IPhase1Priv = IPhase1Priv
+  { iprivA :: Integer -- ^ Exponent such that g^iA = h (pedersen)
+  }
+
+data IPhase1Msg = IPhase1Msg
+  { iCommitParams :: P.CommitParams -- ^ Bases to send to Responder
+  }
+
+iPhase1 :: MonadRandom m => Int -> m (IPhase1Priv, IPhase1Msg)
+iPhase1 = fmap (bimap IPhase1Priv IPhase1Msg) . P.setup
+
+--------------------------
+-- Initiator Phase 2
+--------------------------
+
+data IPhase2Params = IPhase2Params
+  { ip2pSecretBytes   :: [Word8]
+  , ip2pRCommitParams :: P.CommitParams
+  }
+
+mkIPhase2Params :: ByteString -> RPhase1Msg -> IPhase2Params
+mkIPhase2Params secret rp1msg =
+  IPhase2Params
+    { ip2pSecretBytes   = BA.unpack secret
+    , ip2pRCommitParams = rCommitParams rp1msg
+    }
+
+data IPhase2Priv = IPhase2Priv
+  { iprivK1Map  :: K1Map
+  , iprivK2Map  :: K2Map
+  , iprivR      :: Integer
+  , iprivReveal :: P.Reveal  -- ^ Info to open the g^r commitment
+  }
+
+data IPhase2Msg = IPhase2Msg
+  { iGtoK1Map   :: GtoK1Map
+  , iGtoK2Map   :: GtoK2Map
+  , iCommitment :: P.Commitment -- ^ Commitment of private R value
+  , iC          :: Integer
+  }
+
+iPhase2 :: MonadRandom m => IPhase2Params -> SPFM m (IPhase2Priv, IPhase2Msg)
+iPhase2 (IPhase2Params secretBytes rcp) = do
+    (k1Map,k2Map) <- genKMaps secretBytes
+    gToK1map <- kmapToGKMap k1Map
+    gToK2map <- kmapToGKMap k2Map
+    (r,pedersen) <- genAndCommitR rcp
+    c <- genC
+    let ip2Priv = IPhase2Priv k1Map k2Map r (P.reveal pedersen)
+    let ip2Msg  = IPhase2Msg gToK1map gToK2map (P.commitment pedersen) c
+    return (ip2Priv, ip2Msg)
+
+--------------------------
+-- Initiator Phase 3
+--------------------------
+
+data IPhase3Params = IPhase3Params
+  { ip3pRCommitment   :: P.Commitment
+  , ip3pRReveal       :: P.Reveal
+  , ip3pRDMap         :: DMap
+  , ip3pRGtoK1Map     :: GtoK1Map
+  , ip3pRC            :: Integer
+  , ip3pICommitParams :: P.CommitParams
+  , ip3pIC            :: Integer
+  , ip3pK1Map         :: K1Map
+  , ip3pIR            :: Integer
+  , ip3pIReveal       :: P.Reveal
+  , ip3pA             :: Integer
+  }
+
+mkIPhase3Params
+  :: IPhase1Priv
+  -> IPhase1Msg
+  -> IPhase2Priv
+  -> IPhase2Msg
+  -> RPhase1Msg
+  -> RPhase2Msg
+  -> IPhase3Params
+mkIPhase3Params ip1priv ip1msg ip2priv ip2msg rp1msg rp2msg =
+  IPhase3Params
+    { ip3pRCommitment   = rCommit rp1msg
+    , ip3pRReveal       = rReveal rp2msg
+    , ip3pRDMap         = rDMap rp2msg
+    , ip3pRGtoK1Map     = rGtoK1Map rp1msg
+    , ip3pRC            = rC rp2msg
+    , ip3pICommitParams = iCommitParams ip1msg
+    , ip3pIC            = iC ip2msg
+    , ip3pK1Map         = iprivK1Map ip2priv
+    , ip3pIR            = iprivR ip2priv
+    , ip3pIReveal       = iprivReveal ip2priv
+    , ip3pA             = iprivA ip1priv
+    }
+
+data IPhase3Msg
+  = IPhase3Reject
+  | IPhase3Msg
+      { iReveal :: P.Reveal
+      , iDMap   :: DMap
+      , iA      :: Integer
+      }
+
+iPhase3 :: MonadRandom m => IPhase3Params -> SPFM m IPhase3Msg
+iPhase3 (IPhase3Params rcom rrev rdmap rgtok1map rc icp ic ik1map ir irev ia)
+  | P.open icp rcom rrev = do
+      dmapIsValid <- verifyDMap rdmap rgtok1map ic $ P.revealVal rrev
+      if dmapIsValid then
+        return IPhase3Msg
+          { iReveal = irev
+          , iDMap   = computeDMap rc ik1map ir
+          , iA      = ia
+          }
+      else return IPhase3Reject
+  | otherwise = return IPhase3Reject
+
+--------------------------
+-- Initiator Phase 4
+--------------------------
+
+data IPhase4Params = IPhase4Params
+  { ip4pRA            :: Integer
+  , ip4pRCommitParams :: P.CommitParams
+  , ip4pRK2Map        :: K2Map
+  , ip4pRGK2Map       :: GtoK2Map
+  , ip4pIK2Map        :: K2Map
+  }
+
+mkIPhase4Params
+  :: IPhase2Priv
+  -> RPhase1Msg
+  -> RPhase1Priv
+  -> RPhase3Msg
+  -> IPhase4Params
+mkIPhase4Params ip2priv rp1msg rp1priv rp3msg =
+  IPhase4Params
+    { ip4pRA            = rprivA rp1priv
+    , ip4pRCommitParams = rCommitParams rp1msg
+    , ip4pRK2Map        = rK2Map rp3msg
+    , ip4pRGK2Map       = rGtoK2Map rp1msg
+    , ip4pIK2Map        = iprivK2Map ip2priv
+    }
+
+data IPhase4Msg
+  = IPhase4Reject
+  | IPhase4Msg
+      { iK2Map :: K2Map
+      }
+
+iPhase4 :: MonadRandom m => IPhase4Params -> SPFM m IPhase4Msg
+iPhase4 (IPhase4Params ra rcp rk2map rgtok2map ik2map)
+  | P.verifyCommitParams ra rcp = do
+      gToK2Map <- kmapToGKMap rk2map
+      if gToK2Map == rgtok2map then
+        return IPhase4Msg
+          { iK2Map = ik2map
+          }
+      else return IPhase4Reject
+  | otherwise = return IPhase4Reject
+
+--------------------------
+-- Initiator Reveal -XXX
+--------------------------
+
+data IRevealMsg = IRevealMsg
+  { iK1Map :: K1Map }
+
+--------------------------------------------------------------------------
+
+--------------------------
+-- Responder Phase 1
+--------------------------
+
+data RPhase1Params = RPhase1Params
+  { rp1pSecurityParam :: Int
+  , rp1pSecretBytes   :: [Word8]
+  , rp1pICommitParams :: P.CommitParams
+  }
+
+mkRPhase1Params :: Int -> ByteString -> P.CommitParams -> RPhase1Params
+mkRPhase1Params secParam secret icp =
+  RPhase1Params
+    { rp1pSecurityParam = secParam
+    , rp1pSecretBytes   = BA.unpack secret
+    , rp1pICommitParams = icp
+    }
+
+data RPhase1Priv = RPhase1Priv
+  { rprivA      :: Integer  -- ^ Exponent such that g^rA = h (pedersen)
+  , rprivK1Map  :: K1Map
+  , rprivK2Map  :: K2Map
+  , rprivReveal :: P.Reveal
+  , rprivR      :: Integer
+  }
+
+data RPhase1Msg = RPhase1Msg
+  { rCommitParams :: P.CommitParams
+  , rGtoK1Map     :: GtoK1Map
+  , rGtoK2Map     :: GtoK2Map
+  , rCommit       :: P.Commitment -- ^ Commitment of private R value
+  }
+
+rPhase1 :: MonadRandom m => RPhase1Params -> SPFM m (RPhase1Priv, RPhase1Msg)
+rPhase1 (RPhase1Params secParam secretBytes icp) = do
+  (a,commitParams) <- lift $ P.setup secParam
+  (k1Map,k2Map) <- genKMaps secretBytes
+  gtoK1Map <- kmapToGKMap k1Map
+  gtoK2Map <- kmapToGKMap k2Map
+  (r,pedersen) <- genAndCommitR icp
+  let rPhase1Priv = RPhase1Priv a k1Map k2Map (P.reveal pedersen) r
+  let rPhase1Msg  = RPhase1Msg commitParams gtoK1Map gtoK2Map (P.commitment pedersen)
+  return (rPhase1Priv, rPhase1Msg)
+
+--------------------------
+-- Responder Phase 2
+--------------------------
+
+data RPhase2Params = RPhase2Params
+  { rp2pIC      :: Integer
+  , rp2pRK1Map  :: K1Map
+  , rp2pRReveal :: P.Reveal
+  , rp2pRR      :: Integer
+  }
+
+mkRPhase2Params :: RPhase1Priv -> IPhase2Msg -> RPhase2Params
+mkRPhase2Params rp1priv ip2msg =
+  RPhase2Params
+    { rp2pIC      = iC ip2msg
+    , rp2pRK1Map  = rprivK1Map rp1priv
+    , rp2pRReveal = rprivReveal rp1priv
+    , rp2pRR      = rprivR rp1priv
+    }
+
+data RPhase2Msg = RPhase2Msg
+  { rC      :: Integer
+  , rReveal :: P.Reveal
+  , rDMap   :: DMap
+  }
+
+rPhase2 :: MonadRandom m => RPhase2Params -> SPFM m RPhase2Msg
+rPhase2 (RPhase2Params ic k1Map rreveal r) = do
+  r <- genC
+  let dmap = computeDMap ic k1Map r
+  return RPhase2Msg
+    { rC = r
+    , rReveal = rreveal
+    , rDMap = dmap
+    }
+
+--------------------------
+-- Responder Phase 3
+--------------------------
+
+data RPhase3Params = RPhase3Params
+  { rp3pRCommitParams :: P.CommitParams
+  , rp3pICommitment   :: P.Commitment
+  , rp3pIReveal       :: P.Reveal
+  , rp3pIDMap         :: DMap
+  , rp3pIGtoK1Map     :: GtoK1Map
+  , rp3pRC            :: Integer
+  , rp3pIA            :: Integer
+  , rp3pICommitParams :: P.CommitParams
+  , rp3pRK2Map        :: K2Map
+  , rp3pRA            :: Integer
+  }
+
+mkRPhase3Params
+  :: RPhase1Priv
+  -> RPhase1Msg
+  -> RPhase2Msg
+  -> IPhase1Msg
+  -> IPhase2Msg
+  -> IPhase3Msg
+  -> RPhase3Params
+mkRPhase3Params rp1priv rp1msg rp2msg ip1msg ip2msg ip3msg =
+  RPhase3Params
+    { rp3pRCommitParams = rCommitParams rp1msg
+    , rp3pICommitment   = iCommitment ip2msg
+    , rp3pIReveal       = iReveal ip3msg
+    , rp3pIDMap         = iDMap ip3msg
+    , rp3pIGtoK1Map     = iGtoK1Map ip2msg
+    , rp3pRC            = rC rp2msg
+    , rp3pIA            = iA ip3msg
+    , rp3pICommitParams = iCommitParams ip1msg
+    , rp3pRK2Map        = rprivK2Map rp1priv
+    , rp3pRA            = rprivA rp1priv
+    }
+
+data RPhase3Msg
+  = RPhase3Reject
+  | RPhase3Msg
+      { rK2Map  :: K2Map
+      , rA      :: Integer
+      }
+
+rPhase3 :: MonadRandom m => RPhase3Params -> SPFM m RPhase3Msg
+rPhase3 (RPhase3Params rcp icom irev idmap igtoKMap rc ia icp rK2Map ra)
+  | P.open rcp icom irev = do
+      dmapIsValid <- verifyDMap idmap igtoKMap rc (P.revealVal irev)
+      if dmapIsValid then
+        return $ RPhase3Msg rK2Map ra
+      else return RPhase3Reject
+  | otherwise = return RPhase3Reject
+
+
+--------------------------
+-- Responder Phase 4 XXX
+--------------------------
+
+data RPhase4Msg = RPhase4Msg
+  { rK1Map :: K1Map
+  }

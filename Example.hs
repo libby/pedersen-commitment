@@ -21,16 +21,16 @@ testBlumMicaliPRNG :: IO Integer
 testBlumMicaliPRNG = do
   let k = 256
   (a,cparams) <- setup k
-  runSPFT (pedersenSPF cparams) $ do
-    seed <- genPRNGSeed
-    lift . blumMicaliPRNG k seed =<< ask
+  let spf = pedersenSPF cparams
+  seed <- genPRNGSeed spf
+  blumMicaliPRNG k seed spf
 
 testPedersen :: ByteString -> IO Bool
 testPedersen bs = do
   let hashedBs = os2ip $ sha256 bs
   (a,commitParams) <- setup 256 -- hashStorage uses sha256
-  pedersen <- commit hashedBs commitParams
-  return $ open commitParams pedersen
+  (Pedersen c r) <- commit hashedBs commitParams
+  return $ open commitParams c r
 
 -- | In this test, all values computed are in scope for both Alice & Bob, so
 -- instead of "sending" those values to one another, we can just use them for
@@ -64,6 +64,7 @@ testMICP secParam = do
     -- 2(c): Send bobCommit to alice using alice params
     putText "Gen bob r"
     (bobR, bobPedersen) <- genAndCommitR aCommitParams
+    let (Pedersen bobCommitment bobReveal) = bobPedersen
 
     -- 3(a): Send aliceGKMap to bob
     putText "Gen alice kmap"
@@ -74,6 +75,7 @@ testMICP secParam = do
     -- 3(b): Send aliceCommit to bob
     putText "Gen alice r"
     (aliceR, alicePedersen) <- genAndCommitR bCommitParams
+    let (Pedersen aliceCommitment aliceReveal) = alicePedersen
 
     -- 3(c): Send aliceC to bob
     putText "Gen alice c"
@@ -90,10 +92,10 @@ testMICP secParam = do
     let bobDMap = computeDMap aliceC bobKMap bobR
 
     -- 5(a): alice checks bob's commit
-    unless (open aCommitParams bobPedersen) $
+    unless (open aCommitParams bobCommitment bobReveal) $
       panic "Bob's commit is illegitimate!"
     --       alice verifies g^di = (g^ki)^c + g^r
-    bobDMapVerified <- verifyDMap bobDMap bobGtoKMap aliceC $ rVal $ reveal bobPedersen
+    bobDMapVerified <- verifyDMap bobDMap bobGtoKMap aliceC $ revealVal bobReveal
     unless bobDMapVerified $
       panic "Bob's computations are wrong!"
 
@@ -106,10 +108,10 @@ testMICP secParam = do
     -- 5(d): send alice's 'a' to bob
 
     -- 6(a): bob checks alice's commit
-    unless (open bCommitParams alicePedersen) $
+    unless (open bCommitParams aliceCommitment aliceReveal) $
       panic "Alice's commit is illegitimate!"
     --       bob verifies g^di = (g^ki)^c + g^r
-    aliceDMapVerified <- verifyDMap aliceDMap aliceGtoKMap bobC $ rVal $ reveal alicePedersen
+    aliceDMapVerified <- verifyDMap aliceDMap aliceGtoKMap bobC $ revealVal aliceReveal
     unless aliceDMapVerified $
       panic "Alice's computations are wrong!"
 
