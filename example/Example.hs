@@ -1,3 +1,6 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Example (
   testMICP,
   testPedersen,
@@ -6,7 +9,7 @@ module Example (
 
 import Protolude
 
-import MICP
+import MICP.Internal
 import Pedersen
 import PrimeField
 
@@ -42,7 +45,7 @@ testMICP secParam = do
   let bobMsg   = sha256 "987654321"
   let bobMsgBytes = BA.unpack bobMsg
 
-  putText "Creating envs..."
+  putText "\nCreating Shared SPF and Local Params..."
 
   sharedSPF <- mkSPF secParam
   let aliceParams = mkMICParams secParam aliceMsg sharedSPF

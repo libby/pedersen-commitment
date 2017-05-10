@@ -52,6 +52,7 @@ library
   exposed-modules:
       PrimeField
       Pedersen
+      MICP.Internal
       MICP
   other-modules:
       Paths_pedersen_commitment
@@ -61,7 +62,7 @@ test-suite test-suite
   type: exitcode-stdio-1.0
   main-is: Main.hs
   hs-source-dirs:
-      tests
+      tests, example
   build-depends:
       base >= 4.7 && < 5
     , protolude
@@ -78,4 +79,6 @@ test-suite test-suite
     , tasty
     , tasty-hunit
     , tasty-quickcheck
+  other-modules:
+      Example
   default-language: Haskell2010

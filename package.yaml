@@ -82,6 +82,7 @@ library:
   exposed-modules:
     - PrimeField
     - Pedersen
+    - MICP.Internal
     - MICP
 
 tests:
@@ -95,4 +96,5 @@ tests:
     - tasty-hunit
     - tasty-quickcheck
     main: Main.hs
-    source-dirs: tests
+    source-dirs: tests, example
+    other-modules: Example

@@ -12,6 +12,8 @@ import Test.Tasty.HUnit as HU
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic as QM
 
+import Example (testMICP)
+
 import Pedersen
 import PrimeField
 
@@ -19,6 +21,7 @@ suite :: TestTree
 suite = testGroup "Test Suite" [
     testGroup "Units"
       [ pedersenTests
+      , micpTests
       ]
   ]
 
@@ -55,6 +58,11 @@ pedersenTests = testGroup "Pedersen Commitment Scheme"
         cyz == commitment pyz
   ]
 
+micpTests :: TestTree
+micpTests = testGroup "Mutually Independent Commitment Protocol"
+  [ testCase "MICP Components work in order" $
+      assertBool "MIC Protocol failed!" =<< testMICP 256
+  ]
 
 main :: IO ()
 main = defaultMain suite
