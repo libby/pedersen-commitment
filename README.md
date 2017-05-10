@@ -16,15 +16,15 @@ Pedersen commitment scheme has the following properties:
 3. Non-correlation: A dishonest party cannot commit to a value that is in some
    significant way correlated to the honest party's value.
 
-Using Pedersen commitments we implement a [Mutually Independent
-Commitments](https://www.iacr.org/archive/asiacrypt2001/22480387.pdf), a secure
+Using Pedersen commitments we implement [mutually independent
+commitments](https://www.iacr.org/archive/asiacrypt2001/22480387.pdf) system, a secure
 multiparty communication protocol in which counterparties can commit to
 arbitrary messages or data in a binding way such that all counterparties can
 perform zero knowledge equality or non-equality checks of counterparts data,
 with the option to reveal the data at a later point; all with perfect
 information hiding of the underlying data or messages.
 
-See:
+References:
 
 1. Pedersen, Torben Pryds. "Non-interactive and information-theoretic secure verifiable secret sharing." Annual International Cryptology Conference. Springer Berlin Heidelberg, 1991.  APA	
 2. Liskov, Moses, et al. "Mutually independent commitments." International Conference on the Theory and Application of Cryptology and Information Security. Springer Berlin Heidelberg, 2001.  APA	
