@@ -34,9 +34,9 @@ example = do
 
 Pedersen commitment scheme has the following properties:
 
-1. Hiding: A dishonest party cannot discover the honest party's value.
-2. Binding: A dishonest party cannot open his or her commitment in more than one way
-3. Non-correlation: A dishonest party cannot commit to a value that is in some
+1. **Hiding**: A dishonest party cannot discover the honest party's value.
+2. **Binding**: A dishonest party cannot open his or her commitment in more than one way
+3. **Non-correlation**: A dishonest party cannot commit to a value that is in some
    significant way correlated to the honest party's value.
 
 Using Pedersen commitments we implement [mutually independent
