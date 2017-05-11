@@ -9,6 +9,29 @@ the committing party divulges a necessary parameter of the commitment process.
 Strong commitment schemes must be both information *hiding* and computationally
 *binding*.
 
+The Pedersen commitment sheme allows a sender to create a commitment to a secret
+value. They may then later open the commitment and reveal the value in a
+verifiable manner that binds them to their commitment. A commitment shceme
+consists of a three stages:
+
+1. `Setup`
+2. `Commit`
+3. `Open`
+
+```haskell
+example :: IO Bool
+example = do
+  -- Setup commitment parameters
+  (a, cp) <- setup 256 
+
+  -- Commit to the message using paramaters: Com(msg, cp)
+  let msg = 0xCAFEBEEF
+  Pedersen c r <- commit msg cp
+
+  -- Open and verify commitment: Open(cp,c,r)
+  pure (open cp c r)
+```
+
 Pedersen commitment scheme has the following properties:
 
 1. Hiding: A dishonest party cannot discover the honest party's value.
@@ -24,7 +47,14 @@ perform zero knowledge equality or non-equality checks of counterparts data,
 with the option to reveal the data at a later point; all with perfect
 information hiding of the underlying data or messages.
 
-References:
+Pedersen commitments are also additionally homomorphic, such that for messages
+`m0` and `m1` and blinding factors `r0` and `r1` we have:
+
+```
+Com(m0; r0) * Com(m1; r1) = Com(m0 + m1; r0 + r1)
+```
+
+**References**:
 
 1. Pedersen, Torben Pryds. "Non-interactive and information-theoretic secure verifiable secret sharing." Annual International Cryptology Conference. Springer Berlin Heidelberg, 1991.  APA	
 2. Liskov, Moses, et al. "Mutually independent commitments." International Conference on the Theory and Application of Cryptology and Information Security. Springer Berlin Heidelberg, 2001.  APA	
@@ -36,7 +66,7 @@ Usage
 ```bash
 $ stack build
 $ stack repl
-> :load Example.hs
+> :load example/Example.hs
 ```
 
 License
