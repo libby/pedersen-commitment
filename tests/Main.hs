@@ -12,7 +12,7 @@ import Test.Tasty.HUnit as HU
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic as QM
 
-import Example (testMICP)
+import Example (micpWrapper, micpComponents)
 
 import Pedersen
 import PrimeField
@@ -56,12 +56,16 @@ pedersenTests = testGroup "Pedersen Commitment Scheme"
       let pyz = verifyHomoAdd cp px py
       assertBool "Additive homomorphic property doesn't hold." $
         cyz == commitment pyz
+
+      putText "Starting example:"
   ]
 
 micpTests :: TestTree
 micpTests = testGroup "Mutually Independent Commitment Protocol"
-  [ testCase "MICP Components work in order" $
-      assertBool "MIC Protocol failed!" =<< testMICP 256
+  [ testCase "Testing MICP Components" $
+      assertBool "MICP Components test failed!" =<< micpComponents 256
+  , testCase "Testing MICP Wrapper" $ 
+      assertBool "MICP Wrapper test failed!" =<< micpWrapper 256
   ]
 
 main :: IO ()

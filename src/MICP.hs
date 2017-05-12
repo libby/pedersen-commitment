@@ -1,6 +1,8 @@
 
 module MICP (
   -- ** Initiator Phases
+  IPhase(..),
+  
   IPhase1Priv,
   IPhase1Msg,
   iPhase1,
@@ -13,7 +15,7 @@ module MICP (
 
   IPhase3Params,
   mkIPhase3Params,
-  IPhase3Msg,
+  IPhase3Msg(..),
   iPhase3,
   
   IPhase4Params,
@@ -21,7 +23,15 @@ module MICP (
   IPhase4Msg,
   iPhase4,
 
+  IPhase5Msg,
+  iPhase5,
+
+  iGetK1Map,
+  iGetK2Map,
+
   -- ** Responder Phases
+  RPhase(..),
+  
   RPhase1Priv,
   RPhase1Params,
   mkRPhase1Params,
@@ -38,8 +48,14 @@ module MICP (
   RPhase3Msg,
   rPhase3,
   
-  -- XXX IRevealMsg
-  -- XXX RRevealMsg
+  RPhase4Params,
+  mkRPhase4Params,
+  RPhase4Msg,
+  rPhase4,
+
+  rGetK1Map,
+  rGetK2Map
+
 ) where
 
 import Protolude
@@ -59,6 +75,13 @@ import MICP.Internal
 -------------------------------------------------------------------------------
 
 -- Intiator API
+
+data IPhase 
+  = IPhase1 IPhase1Msg
+  | IPhase2 IPhase2Msg
+  | IPhase3 IPhase3Msg
+  | IPhase4 IPhase4Msg
+  | IPhase5 IPhase5Msg
 
 --------------------------
 -- Initiator Phase 1
@@ -186,22 +209,21 @@ data IPhase4Params = IPhase4Params
   { ip4pRA            :: Integer
   , ip4pRCommitParams :: P.CommitParams
   , ip4pRK2Map        :: K2Map
-  , ip4pRGK2Map       :: GtoK2Map
+  , ip4pRGtoK2Map     :: GtoK2Map
   , ip4pIK2Map        :: K2Map
   }
 
 mkIPhase4Params
   :: IPhase2Priv
   -> RPhase1Msg
-  -> RPhase1Priv
   -> RPhase3Msg
   -> IPhase4Params
-mkIPhase4Params ip2priv rp1msg rp1priv rp3msg =
+mkIPhase4Params ip2priv rp1msg rp3msg =
   IPhase4Params
-    { ip4pRA            = rprivA rp1priv
+    { ip4pRA            = rA rp3msg
     , ip4pRCommitParams = rCommitParams rp1msg
     , ip4pRK2Map        = rK2Map rp3msg
-    , ip4pRGK2Map       = rGtoK2Map rp1msg
+    , ip4pRGtoK2Map     = rGtoK2Map rp1msg
     , ip4pIK2Map        = iprivK2Map ip2priv
     }
 
@@ -210,6 +232,10 @@ data IPhase4Msg
   | IPhase4Msg
       { iK2Map :: K2Map
       }
+
+iGetK2Map :: IPhase4Msg -> Maybe K2Map
+iGetK2Map IPhase4Reject = Nothing
+iGetK2Map (IPhase4Msg k2Map) = Just k2Map 
 
 iPhase4 :: MonadRandom m => IPhase4Params -> SPFM m IPhase4Msg
 iPhase4 (IPhase4Params ra rcp rk2map rgtok2map ik2map)
@@ -223,15 +249,27 @@ iPhase4 (IPhase4Params ra rcp rk2map rgtok2map ik2map)
   | otherwise = return IPhase4Reject
 
 --------------------------
--- Initiator Reveal Phase XXX
+-- Initiator Reveal Phase 
 --------------------------
 
-data IRevealMsg = IRevealMsg
+data IPhase5Msg = IPhase5Msg 
   { iK1Map :: K1Map }
+
+iGetK1Map :: IPhase5Msg -> K1Map
+iGetK1Map = iK1Map
+
+iPhase5 :: IPhase2Priv -> IPhase5Msg
+iPhase5 ip2priv = IPhase5Msg $ iprivK1Map ip2priv
 
 --------------------------------------------------------------------------
 
 -- Responder API
+
+data RPhase
+  = RPhase1 RPhase1Msg
+  | RPhase2 RPhase2Msg
+  | RPhase3 RPhase3Msg
+  | RPhase4 RPhase4Msg
 
 --------------------------
 -- Responder Phase 1
@@ -243,12 +281,12 @@ data RPhase1Params = RPhase1Params
   , rp1pICommitParams :: P.CommitParams
   }
 
-mkRPhase1Params :: Int -> ByteString -> P.CommitParams -> RPhase1Params
-mkRPhase1Params secParam secret icp =
+mkRPhase1Params :: Int -> ByteString -> IPhase1Msg -> RPhase1Params
+mkRPhase1Params secParam secret ip1msg =
   RPhase1Params
     { rp1pSecurityParam = secParam
     , rp1pSecretBytes   = BA.unpack secret
-    , rp1pICommitParams = icp
+    , rp1pICommitParams = iCommitParams ip1msg 
     }
 
 data RPhase1Priv = RPhase1Priv
@@ -305,12 +343,12 @@ data RPhase2Msg = RPhase2Msg
 
 rPhase2 :: MonadRandom m => RPhase2Params -> SPFM m RPhase2Msg
 rPhase2 (RPhase2Params ic k1Map rreveal r) = do
-  r <- genC
+  c <- genC
   let dmap = computeDMap ic k1Map r
   return RPhase2Msg
-    { rC = r
+    { rC      = c 
     , rReveal = rreveal
-    , rDMap = dmap
+    , rDMap   = dmap
     }
 
 --------------------------
@@ -359,6 +397,9 @@ data RPhase3Msg
       , rA      :: Integer
       }
 
+rGetK2Map :: RPhase3Msg -> K2Map
+rGetK2Map = rK2Map
+
 rPhase3 :: MonadRandom m => RPhase3Params -> SPFM m RPhase3Msg
 rPhase3 (RPhase3Params rcp icom irev idmap igtoKMap rc ia icp rK2Map ra)
   | P.open rcp icom irev = do
@@ -372,6 +413,33 @@ rPhase3 (RPhase3Params rcp icom irev idmap igtoKMap rc ia icp rK2Map ra)
 -- Responder Reveal Phase XXX
 --------------------------
 
-data RRevealMsg = RRevealMsg
-  { rK1Map :: K1Map
+data RPhase4Params = RPhase4Params
+  { rp4pRK1Map    :: K1Map
+  , rp4pIK2Map    :: K2Map
+  , rp4pIGtoK2Map :: GtoK2Map
   }
+
+mkRPhase4Params :: RPhase1Priv -> IPhase2Msg -> IPhase4Msg -> RPhase4Params
+mkRPhase4Params rp1priv ip2msg ip4msg = 
+  RPhase4Params
+    { rp4pRK1Map    = rprivK1Map rp1priv
+    , rp4pIK2Map    = iK2Map ip4msg
+    , rp4pIGtoK2Map = iGtoK2Map ip2msg
+    }
+
+-- | Final message in the protocol
+data RPhase4Msg 
+  = RPhase4Reject
+  | RPhase4Msg 
+      { rK1Map :: K1Map
+      }
+
+rGetK1Map :: RPhase4Msg -> K1Map
+rGetK1Map = rK1Map
+
+rPhase4 :: MonadRandom m => RPhase4Params -> SPFM m RPhase4Msg
+rPhase4 (RPhase4Params rk1map ik2map igtok2map) = do
+  igtok2map' <- kmapToGKMap ik2map
+  if igtok2map == igtok2map' then
+    return $ RPhase4Msg rk1map
+  else return RPhase4Reject
