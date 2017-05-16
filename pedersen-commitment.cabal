@@ -1,4 +1,4 @@
--- This file has been generated from package.yaml by hpack version 0.15.0.
+-- This file has been generated from package.yaml by hpack version 0.17.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -6,8 +6,8 @@ name:           pedersen-commitment
 version:        0.1.0
 synopsis:       An implementation of the Mutually Independent Commitment Schemes
 category:       Development
-homepage:       https://github.com/adjoint-io/matrix#readme
-bug-reports:    https://github.com/adjoint-io/matrix/issues
+homepage:       https://github.com/adjoint-io/pedersen-commitment#readme
+bug-reports:    https://github.com/adjoint-io/pedersen-commitment/issues
 maintainer:     Adjoint Inc (info@adjoint.io)
 license:        Apache
 license-file:   LICENSE
@@ -19,7 +19,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/adjoint-io/matrix
+  location: https://github.com/adjoint-io/pedersen-commitment
 
 flag optimized
   description: Perform compiler optimizations

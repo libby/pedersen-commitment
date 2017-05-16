@@ -3,7 +3,7 @@ version: 0.1.0
 synopsis: An implementation of the Mutually Independent Commitment Schemes
 maintainer: Adjoint Inc (info@adjoint.io)
 license: Apache
-github: adjoint-io/matrix
+github: adjoint-io/pedersen-commitment
 category: Development
 extra-source-files:
   - README.md
