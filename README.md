@@ -1,4 +1,4 @@
-Pedersen Commitments
+Commitment Schemes
 ====================
 
 [![CircleCI](https://circleci.com/gh/adjoint-io/pedersen-commitment.svg?style=svg&circle-token=35a75a2815badbfcb8ed604037cff3203b848bd2)](https://circleci.com/gh/adjoint-io/pedersen-commitment)
@@ -54,7 +54,7 @@ Pedersen commitments are also additionally homomorphic, such that for messages
 Commit(m0; r0) * Commit(m1; r1) = Commit(m0 + m1; r0 + r1)
 ```
 
-### Pedersen Commitments - Elliptic Curve
+### Pedersen Commitments (Elliptic Curves)
 
 A more efficient implementation of the Pedersen Commitment scheme arises from 
 Elliptic Curve Cryptography (ECC) which is based on the algebraic structure of 
@@ -62,11 +62,11 @@ elliptic curves over finite (prime) fields. Using ECC, the commitment scheme
 computations require fewer bits and as a result yields a much faster commitment 
 phase. 
 
-Given a cryptographically secure Elliptic Curve (e.g. SECP256K1), a Pedersen 
+Given a secure elliptic curve (e.g. secp256k1), a Pedersen 
 commitment can be implemented using the same interface as usual but instead 
 of prime field modular exponentiation, EC point multiplication and addition 
 are used. The use of EC Pedersen commitments is almost exactly the same as the
-general safe prime field implementation:
+general prime field implementation:
 
 ```haskell
 example :: IO Bool
@@ -89,10 +89,9 @@ homomorphic in two ways:
 Commit(x, r1) + Commit(y, r2) = Commit(x + y, r1 + r2)
 ```
 
-and
+and given a scalar `n`:
 
 ```
-// Given n is some scalar in Eq
 Commit(x,r) + n = Commit(x + n,r)
 ```
 
